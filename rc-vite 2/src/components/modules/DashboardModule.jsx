@@ -3,6 +3,7 @@
 // ============================================================
 
 import { Alert } from '../shared/Common'
+import { ChartCard, GroupedBars, LineChart } from '../shared/Charts'
 import {
   fmtMoney, calcScore, detectAlerts,
   calcER, calcRazones, calcCapacidad, parseNum
@@ -82,7 +83,6 @@ export default function DashboardModule({ state }) {
 
 function FinancialDashboard({ state }) {
   const er = calcER(state)
-  const bg = calcBG(state)
   const r  = calcRazones(state)
   const cap = calcCapacidad(state)
 
@@ -154,11 +154,47 @@ function FinancialDashboard({ state }) {
   const dscrPct = Math.min(200, (cap.dscr || 0) * 100 / 1.5 * 50) // 1.5 = 50% of gauge (objetivo)
   const dscrColor = cap.dscr >= 1.5 ? 'var(--rc-success)' : cap.dscr >= 1.2 ? 'var(--rc-amber)' : 'var(--rc-red)'
 
+  // Series for new widgets
+  const ventasSeries  = [er.y1.ventasNetas, er.y2.ventasNetas, er.y3.ventasNetas]
+  const utilNetaSeries= [er.y1.utilNeta,    er.y2.utilNeta,    er.y3.utilNeta]
+  const margenBrutoSeries = [er.y1.margenBruto,     er.y2.margenBruto,     er.y3.margenBruto]
+  const margenOpSeries    = [er.y1.margenOperativo, er.y2.margenOperativo, er.y3.margenOperativo]
+  const margenNetoSeries  = [er.y1.margenNeto,      er.y2.margenNeto,      er.y3.margenNeto]
+  const liquidezCTSeries  = [r.y1.solvenciaCT,        r.y2.solvenciaCT,        r.y3.solvenciaCT]
+  const liquidezAcidaSeries = [r.y1.liquidezAcida,    r.y2.liquidezAcida,      r.y3.liquidezAcida]
+  const endeudamientoSeries = [r.y1.razonEndeudamiento, r.y2.razonEndeudamiento, r.y3.razonEndeudamiento]
+  const apalancamientoSeries = [r.y1.apalancamiento,    r.y2.apalancamiento,    r.y3.apalancamiento]
+
+  // Depósitos totales mensuales (6 meses, sumando todos los bancos)
+  const depositosMensuales = [1,2,3,4,5,6].map(m =>
+    cuentas.reduce((s, cb) => s + parseNum(cb['dm'+m]), 0)
+  )
+  const promDepMensual = depositosMensuales.reduce((s,v)=>s+v,0) / 6
+  const coberturaBancaria = monto > 0 ? promDepMensual / monto : 0
+
+  // KPI 1 — Monto vs Máx Recomendable
+  const maxRec = cap.montoRecomendable || 0
+  const montoFillPct = maxRec > 0 ? Math.min(100, (monto / maxRec) * 100) : 0
+  const montoSafe = maxRec > 0 ? monto <= maxRec : false
+
+  // KPI 4 — Margen Neto delta
+  const mnDelta = bps(er.y2.margenNeto, er.y1.margenNeto)
+
+  // Chart card KPIs — última variación (y3 vs y2)
+  const vsAntLabel = `vs ${labels[1].toUpperCase()}`
+  const kpiVentas = { delta: yoy(er.y3.ventasNetas, er.y2.ventasNetas), unit: '%', label: vsAntLabel }
+  const kpiMargenes = { delta: bps(er.y3.margenNeto, er.y2.margenNeto), unit: 'pp', precision: 2, label: 'Neto ' + vsAntLabel }
+  const kpiLiquidez = { delta: bps(r.y3.solvenciaCT, r.y2.solvenciaCT), unit: 'x', precision: 2, label: 'Corriente ' + vsAntLabel }
+  const kpiEndeud = { delta: bps(r.y3.razonEndeudamiento, r.y2.razonEndeudamiento), unit: 'pp', precision: 2, inverse: true, label: vsAntLabel }
+  const kpiDep = {
+    delta: depositosMensuales[0] > 0 ? ((depositosMensuales[5] - depositosMensuales[0]) / depositosMensuales[0]) * 100 : null,
+    unit: '%', label: 'último vs 1er mes'
+  }
+
   return (
     <div className="fd">
       {/* TICKER */}
       <div className="fd-ticker">
-        <div className="fd-ticker-label">LIVE · {labels[1].toUpperCase()}</div>
         <div className="fd-ticker-track">
           {tickers.map((t, i) => {
             const positive = t.inverse ? (t.d != null && t.d < 0) : (t.d != null && t.d >= 0)
@@ -167,14 +203,97 @@ function FinancialDashboard({ state }) {
               <div key={i} className="fd-tick">
                 <div className="fd-tick-l">{t.l}</div>
                 <div className="fd-tick-v">{t.v}</div>
-                {t.d != null && (
+                {t.d != null ? (
                   <div className={`fd-tick-d ${positive ? 'up' : 'down'}`}>
-                    {arrow} {Math.abs(t.d).toFixed(t.unit === '%' ? 1 : 2)}{t.unit}
+                    {arrow} {Math.abs(t.d).toFixed(t.unit === '%' ? 1 : 2)}{t.unit} <span className="fd-tick-vs">vs. {labels[0]}</span>
                   </div>
+                ) : (
+                  <div className="fd-tick-d fd-tick-d--na">— <span className="fd-tick-vs">sin comparativo</span></div>
                 )}
               </div>
             )
           })}
+        </div>
+      </div>
+
+      {/* WIDGETS */}
+      <div className="fd-w">
+        {/* ROW 1 — KPI CARDS */}
+        <div className="fd-w-row fd-w-row--kpi">
+          <KpiMonto
+            monto={monto}
+            maxRec={maxRec}
+            fillPct={montoFillPct}
+            safe={montoSafe}
+            fmtMoneyShort={fmtMoneyShort}
+          />
+          <KpiDscr cap={cap} />
+          <KpiCapTrab
+            value={r.y2.capitalTrabajoNeto}
+            delta={yoy(r.y2.capitalTrabajoNeto, r.y1.capitalTrabajoNeto)}
+            fmtMoneyShort={fmtMoneyShort}
+          />
+          <KpiMargenNeto
+            value={er.y2.margenNeto}
+            delta={mnDelta}
+            series={margenNetoSeries}
+          />
+        </div>
+
+        {/* ROW 2 — VENTAS + MÁRGENES */}
+        <div className="fd-w-row fd-w-row--2up">
+          <ChartCard eye="P&L · TENDENCIA" title="Ventas y Utilidad Neta" kpi={kpiVentas}>
+            <GroupedBars
+              labels={labels}
+              series={[
+                { name: 'Ventas Netas',  vals: ventasSeries,   color: 'var(--rc-green)' },
+                { name: 'Utilidad Neta', vals: utilNetaSeries, color: 'var(--rc-blue)'  }
+              ]}
+              fmt={fmtMoneyShort}
+            />
+          </ChartCard>
+          <ChartCard eye="RENTABILIDAD · 3 PERIODOS" title="Márgenes" kpi={kpiMargenes}>
+            <GroupedBars
+              labels={labels}
+              series={[
+                { name: 'Bruto',     vals: margenBrutoSeries, color: 'var(--rc-green)' },
+                { name: 'Operativo', vals: margenOpSeries,    color: 'var(--rc-blue)'  },
+                { name: 'Neto',      vals: margenNetoSeries,  color: 'var(--rc-amber)' }
+              ]}
+              fmt={(v) => (v ?? 0).toFixed(1) + '%'}
+            />
+          </ChartCard>
+        </div>
+
+        {/* ROW 3 — 3 MINI CHARTS */}
+        <div className="fd-w-row fd-w-row--3up">
+          <ChartCard eye="LIQUIDEZ" title="Razones de Liquidez" kpi={kpiLiquidez}>
+            <GroupedBars
+              labels={labels}
+              series={[
+                { name: 'Corriente',    vals: liquidezCTSeries,    color: 'var(--rc-green)' },
+                { name: 'Prueba Ácida', vals: liquidezAcidaSeries, color: 'var(--rc-blue)'  }
+              ]}
+              fmt={(v) => (v ?? 0).toFixed(2) + 'x'}
+            />
+          </ChartCard>
+          <ChartCard eye="APALANCAMIENTO" title="Endeudamiento" kpi={kpiEndeud}>
+            <GroupedBars
+              labels={labels}
+              series={[
+                { name: 'Endeud. %',    vals: endeudamientoSeries,  color: 'var(--rc-amber)' },
+                { name: 'Apalancam. x', vals: apalancamientoSeries.map(v => v * 10), color: 'var(--rc-blue)', displayVals: apalancamientoSeries, displayFmt: (v) => (v ?? 0).toFixed(2) + 'x' }
+              ]}
+              fmt={(v) => (v ?? 0).toFixed(1) + '%'}
+            />
+          </ChartCard>
+          <ChartCard eye="FLUJO · ÚLTIMOS 6 MESES" title="Depósitos Mensuales" kpi={kpiDep}>
+            <LineChart
+              points={depositosMensuales}
+              fmt={fmtMoneyShort}
+              monthsBack={6}
+            />
+          </ChartCard>
         </div>
       </div>
 
@@ -207,7 +326,12 @@ function FinancialDashboard({ state }) {
                     <td className={row.neg && v2 > 0 ? 'neg' : ''}>{row.neg ? '(' + fmt(v2) + ')' : fmt(v2)}</td>
                     <td className={row.neg && v3 > 0 ? 'neg' : ''}>{row.neg ? '(' + fmt(v3) + ')' : fmt(v3)}</td>
                     <td className={`fd-tbl-yoy ${change == null ? '' : change >= 0 ? 'up' : 'down'}`}>
-                      {change == null ? '—' : (change >= 0 ? '+' : '') + change.toFixed(row.pct ? 2 : 1) + (row.pct ? 'pp' : '%')}
+                      {change == null ? '—' : (
+                        <>
+                          <span className="fd-tbl-yoy-arrow">{change >= 0 ? '▲' : '▼'}</span>
+                          {(change >= 0 ? '+' : '') + change.toFixed(row.pct ? 2 : 1) + (row.pct ? 'pp' : '%')}
+                        </>
+                      )}
                     </td>
                   </tr>
                 )
@@ -250,30 +374,41 @@ function FinancialDashboard({ state }) {
             <div className="fd-panel-eye">RATIOS · TENDENCIA 3 PERIODOS</div>
             <div className="fd-panel-t">Razones Financieras</div>
           </div>
-          <div className="fd-ratios">
-            {ratiosList.map((rt, i) => {
-              const max = Math.max(...rt.vals.map(v => Math.abs(v || 0)))
-              const last = rt.vals[rt.vals.length - 1]
-              const first = rt.vals[0]
-              const change = bps(last, first)
-              const good = rt.good === 'up' ? (change >= 0) : (change <= 0)
-              return (
-                <div key={i} className="fd-ratio">
-                  <div className="fd-ratio-l">{rt.l}</div>
-                  <div className="fd-ratio-v">{(last || 0).toFixed(2)}{rt.suffix}</div>
-                  <div className="fd-ratio-spark">
-                    {rt.vals.map((v, j) => {
-                      const h = max > 0 ? (Math.abs(v || 0) / max) * 100 : 0
-                      return <span key={j} className="fd-spark-bar" style={{ height: `${Math.max(6, h)}%`, background: j === rt.vals.length - 1 ? (good ? 'var(--rc-success)' : 'var(--rc-red)') : 'var(--rc-border-dark)' }} />
-                    })}
-                  </div>
-                  <div className={`fd-ratio-d ${good ? 'up' : 'down'}`}>
-                    {change == null ? '—' : (change >= 0 ? '+' : '') + change.toFixed(2)}{rt.suffix === '%' ? 'pp' : rt.suffix}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          <table className="fd-tbl fd-tbl--ratios">
+            <thead>
+              <tr>
+                <th>Indicador</th>
+                <th>{labels[0]}</th>
+                <th>{labels[1]}</th>
+                <th>{labels[2]}</th>
+                <th className="fd-tbl-yoy">Δ {labels[0]}→{labels[2]}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ratiosList.map((rt, i) => {
+                const [v1, v2, v3] = rt.vals
+                const change = bps(v3, v1)
+                const good = rt.good === 'up' ? (change >= 0) : (change <= 0)
+                const fmt = (v) => (v == null ? '—' : (v).toFixed(2) + rt.suffix)
+                return (
+                  <tr key={i}>
+                    <td className="fd-tbl-lbl">{rt.l}</td>
+                    <td>{fmt(v1)}</td>
+                    <td>{fmt(v2)}</td>
+                    <td className="hi">{fmt(v3)}</td>
+                    <td className={`fd-tbl-yoy ${change == null ? '' : good ? 'up' : 'down'}`}>
+                      {change == null ? '—' : (
+                        <>
+                          <span className="fd-tbl-yoy-arrow">{change >= 0 ? '▲' : '▼'}</span>
+                          {(change >= 0 ? '+' : '') + change.toFixed(2) + (rt.suffix === '%' ? 'pp' : rt.suffix)}
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </section>
 
         {/* CONCENTRACIÓN BANCARIA */}
@@ -309,3 +444,101 @@ function FinancialDashboard({ state }) {
     </div>
   )
 }
+
+// ============================================================
+// WIDGET HELPERS
+// ============================================================
+
+function KpiMonto({ monto, maxRec, fillPct, safe, fmtMoneyShort }) {
+  const trafficColor = maxRec === 0 ? 'var(--rc-border-dark)' : safe ? 'var(--rc-success)' : 'var(--rc-red)'
+  return (
+    <div className="fd-w-kpi">
+      <div className="fd-w-kpi-eye" style={{ color: trafficColor }}>
+        MONTO SOLICITADO
+      </div>
+      <div className="fd-w-kpi-v">{monto > 0 ? fmtMoneyShort(monto) : '—'}</div>
+      <div className="fd-w-kpi-bar">
+        <div className="fd-w-kpi-bar-fill" style={{ width: `${fillPct}%`, background: trafficColor }} />
+      </div>
+      <div className="fd-w-kpi-sub">
+        vs. Máx. Recomendable {maxRec > 0 ? fmtMoneyShort(maxRec) : '—'}
+        {maxRec > 0 && <span className={`fd-w-kpi-tag ${safe ? 'ok' : 'bad'}`}>{safe ? 'OK' : 'EXCEDE'}</span>}
+      </div>
+    </div>
+  )
+}
+
+function KpiDscr({ cap }) {
+  const tier = (v) => v >= 1.5 ? 'good' : v >= 1.2 ? 'warn' : 'bad'
+  const stress = [
+    { l: 'Actual', v: cap.dscr || 0 },
+    { l: '−10%',   v: cap.dscrSens10 || 0 },
+    { l: '−20%',   v: cap.dscrSens20 || 0 }
+  ]
+  const max = Math.max(2, ...stress.map(s => s.v))
+  return (
+    <div className="fd-w-kpi">
+      <div className={`fd-w-kpi-eye eye-${tier(cap.dscr || 0)}`}>DSCR · COBERTURA DEUDA</div>
+      <div className="fd-w-kpi-v">{cap.dscr > 0 ? cap.dscr.toFixed(2) + 'x' : '—'}</div>
+      <div className="fd-w-kpi-stress">
+        {stress.map((s, i) => (
+          <div key={i} className="fd-w-stress-row">
+            <span className="fd-w-stress-l">{s.l}</span>
+            <span className="fd-w-stress-bar">
+              <span className={`fd-w-stress-fill tier-${tier(s.v)}`} style={{ width: `${Math.min(100, (s.v / max) * 100)}%` }} />
+            </span>
+            <span className="fd-w-stress-v">{s.v > 0 ? s.v.toFixed(2) + 'x' : '—'}</span>
+          </div>
+        ))}
+      </div>
+      <div className="fd-w-kpi-sub">Objetivo ≥ 1.50x</div>
+    </div>
+  )
+}
+
+function KpiCapTrab({ value, delta, fmtMoneyShort }) {
+  const positive = delta != null && delta >= 0
+  return (
+    <div className="fd-w-kpi">
+      <div className="fd-w-kpi-eye">CAPITAL DE TRABAJO</div>
+      <div className="fd-w-kpi-v">{fmtMoneyShort(value || 0)}</div>
+      <div className="fd-w-kpi-bar fd-w-kpi-bar--ghost">
+        <div className="fd-w-kpi-bar-fill" style={{ width: `${value > 0 ? 100 : 0}%`, background: value > 0 ? 'var(--rc-success)' : 'var(--rc-red)' }} />
+      </div>
+      <div className="fd-w-kpi-sub">
+        Activo Circulante − Pasivo Circulante
+        {delta != null && (
+          <span className={`fd-w-kpi-tag ${positive ? 'ok' : 'bad'}`}>
+            {positive ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}%
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function KpiMargenNeto({ value, delta, series }) {
+  const positive = delta != null && delta >= 0
+  const max = Math.max(0.0001, ...series.map(v => Math.abs(v || 0)))
+  return (
+    <div className="fd-w-kpi">
+      <div className="fd-w-kpi-eye">MARGEN NETO</div>
+      <div className="fd-w-kpi-v">{(value || 0).toFixed(2)}%</div>
+      <div className="fd-w-kpi-spark">
+        {series.map((v, i) => {
+          const h = (Math.abs(v || 0) / max) * 100
+          return <span key={i} className={`fd-w-kpi-spark-bar ${i === series.length - 1 ? 'last' : ''}`} style={{ height: `${Math.max(8, h)}%` }} />
+        })}
+      </div>
+      <div className="fd-w-kpi-sub">
+        Tendencia 3 periodos
+        {delta != null && (
+          <span className={`fd-w-kpi-tag ${positive ? 'ok' : 'bad'}`}>
+            {positive ? '▲' : '▼'} {Math.abs(delta).toFixed(2)}pp
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+

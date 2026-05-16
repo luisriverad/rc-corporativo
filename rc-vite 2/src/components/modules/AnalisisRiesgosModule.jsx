@@ -74,7 +74,7 @@ export default function AnalisisRiesgosModule({ state }) {
         </ul>
       </ModuleSection>
 
-      <CompletionBar title="Completitud del Módulo" pct={riesgoCompletionPct(state)} />
+      <CompletionBar title="% de Completado del Módulo" pct={riesgoCompletionPct(state)} />
     </>
   )
 }

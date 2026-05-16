@@ -297,7 +297,7 @@ export default function CaratulaModule({ state, setState }) {
         </button>
       </ModuleSection>
 
-      <CompletionBar title="Completitud del Módulo" pct={caratulaCompletionPct(state)} />
+      <CompletionBar title="% de Completado del Módulo" pct={caratulaCompletionPct(state)} />
     </>
   )
 }

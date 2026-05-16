@@ -12,8 +12,7 @@ import DashboardModule from './components/modules/DashboardModule'
 import CaratulaModule from './components/modules/CaratulaModule'
 import FinancierosModule from './components/modules/FinancierosModule'
 import AnalisisModule from './components/modules/AnalisisModule'
-import BuroPFModule from './components/modules/BuroPFModule'
-import BuroPMModule from './components/modules/BuroPMModule'
+import BuroModule from './components/modules/BuroModule'
 import CapacidadModule from './components/modules/CapacidadModule'
 import RiesgoModule from './components/modules/RiesgoModule'
 import AnalisisRiesgosModule from './components/modules/AnalisisRiesgosModule'
@@ -22,11 +21,30 @@ import DictamenModule from './components/modules/DictamenModule'
 const STORAGE_KEY = 'rc_corporativo_data_v4'
 
 function loadState() {
+  const base = emptyState()
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) return JSON.parse(saved)
+    if (!saved) return base
+    const parsed = JSON.parse(saved)
+    return {
+      ...base,
+      ...parsed,
+      caratula: { ...base.caratula, ...parsed.caratula },
+      financieros: {
+        ...base.financieros,
+        ...parsed.financieros,
+        er: { ...base.financieros.er, ...parsed.financieros?.er },
+        bg: { ...base.financieros.bg, ...parsed.financieros?.bg }
+      },
+      buroPF: { ...base.buroPF, ...parsed.buroPF },
+      buroPM: { ...base.buroPM, ...parsed.buroPM },
+      capacidad: { ...base.capacidad, ...parsed.capacidad },
+      riesgo: { ...base.riesgo, ...parsed.riesgo },
+      dictamen: { ...base.dictamen, ...parsed.dictamen },
+      modulesCompleted: { ...base.modulesCompleted, ...parsed.modulesCompleted }
+    }
   } catch (e) { console.warn('Error loading state', e) }
-  return emptyState()
+  return base
 }
 
 export default function App() {
@@ -47,7 +65,7 @@ export default function App() {
   const showToast = (msg, type='success') => setToast({ msg, type })
 
   const loadMiramar = () => {
-    setStateRaw({ ...MIRAMAR_DATA, modulesCompleted: { caratula:true, financieros:true, analisis:true, buroPF:true, buroPM:true, capacidad:true, riesgo:true, analisisRiesgos:true, dictamen:true } })
+    setStateRaw({ ...MIRAMAR_DATA, modulesCompleted: { caratula:true, financieros:true, analisis:true, buro:true, capacidad:true, riesgo:true, analisisRiesgos:true, dictamen:true } })
     showToast('Datos MIRAMAR cargados')
   }
 
@@ -65,8 +83,7 @@ export default function App() {
     caratula: { title: 'Carátula del Cliente', subtitle: 'Captura de datos generales' },
     financieros: { title: 'Estados Financieros', subtitle: 'Balance General y Estado de Resultados' },
     analisis: { title: 'Análisis Financiero', subtitle: 'Razones, tendencias e interpretación' },
-    buroPF: { title: 'Buró Persona Física', subtitle: 'Historial crediticio del representante' },
-    buroPM: { title: 'Buró Empresa', subtitle: 'Historial crediticio de la persona moral' },
+    buro: { title: 'Buró Crediticio', subtitle: 'Historial crediticio · Persona Física y Persona Moral' },
     capacidad: { title: 'Capacidad de Pago', subtitle: 'DSCR, flujo y garantías' },
     riesgo: { title: 'Matriz de Riesgo', subtitle: 'Score interno ponderado' },
     analisisRiesgos: { title: 'Análisis de Riesgos', subtitle: 'Escenarios predictivos y alertas' },
@@ -80,8 +97,7 @@ export default function App() {
       case 'caratula': return <CaratulaModule state={state} setState={setState} />
       case 'financieros': return <FinancierosModule state={state} setState={setState} />
       case 'analisis': return <AnalisisModule state={state} />
-      case 'buroPF': return <BuroPFModule state={state} setState={setState} />
-      case 'buroPM': return <BuroPMModule state={state} setState={setState} />
+      case 'buro': return <BuroModule state={state} setState={setState} />
       case 'capacidad': return <CapacidadModule state={state} setState={setState} />
       case 'riesgo': return <RiesgoModule state={state} setState={setState} />
       case 'analisisRiesgos': return <AnalisisRiesgosModule state={state} />
