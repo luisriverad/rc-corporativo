@@ -10,7 +10,7 @@ import {
   financierosCompletionPct
 } from '../../engines/financialEngine'
 import { Delta, AlertChip, periodMonths } from '../../utils/financialHelpers'
-import { ChartCard, GroupedBars, Gauge, CashCycleChart } from '../shared/Charts'
+import { ChartCard, GroupedBars, HorizontalGauge, CashCycleChart } from '../shared/Charts'
 
 export default function AnalisisModule({ state }) {
   const er = calcER(state)
@@ -260,7 +260,7 @@ export default function AnalisisModule({ state }) {
               eye="LIQUIDEZ"
               title="Razón Corriente"
               gauge={
-                <Gauge
+                <HorizontalGauge
                   value={r.y3.solvenciaCT}
                   min={0} max={3} unit="x" precision={2}
                   label="Activo Circ. / Pasivo CP"
@@ -272,7 +272,7 @@ export default function AnalisisModule({ state }) {
               eye="EFICIENCIA"
               title="Días Inventario (DSI)"
               gauge={
-                <Gauge
+                <HorizontalGauge
                   value={r.y3.diasInventario}
                   min={0} max={180} unit="d" precision={0}
                   label="Rotación de inventario"
@@ -284,7 +284,7 @@ export default function AnalisisModule({ state }) {
               eye="EFICIENCIA"
               title="Días CxC (DSO)"
               gauge={
-                <Gauge
+                <HorizontalGauge
                   value={r.y3.diasCxC}
                   min={0} max={180} unit="d" precision={0}
                   label="Recuperación de clientes"
@@ -296,7 +296,7 @@ export default function AnalisisModule({ state }) {
               eye="EFICIENCIA"
               title="Días CxP (DPO)"
               gauge={
-                <Gauge
+                <HorizontalGauge
                   value={r.y3.diasCxP}
                   min={0} max={180} unit="d" precision={0}
                   label="Pago a proveedores"

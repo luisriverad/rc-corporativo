@@ -1392,10 +1392,63 @@
   }
 
   /* ─────────────────────────────────────────────────────────────
+     HorizontalGauge — barra horizontal con bandas + marcador
+     ───────────────────────────────────────────────────────────── */
+  .fd-hgauge {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    width: 100%; padding: 4px 0 0;
+  }
+  .fd-hgauge-v {
+    font-family: 'Source Serif Pro', serif;
+    font-size: 28px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.015em;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .fd-hgauge-svg {
+    width: 100%; max-width: 260px; height: auto;
+    display: block;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.04));
+  }
+  .fd-hgauge-tick {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    fill: var(--rc-text-muted);
+    letter-spacing: 0.02em;
+  }
+  .fd-hgauge-l {
+    font-size: 11px;
+    color: var(--rc-text-muted);
+    text-align: center;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin-top: 6px;
+  }
+  .fd-hgauge-zone {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 8px;
+    padding: 3px 9px 3px 7px;
+    border: 1px solid;
+    border-radius: 999px;
+    font-size: 9px; font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: rgba(255,255,255,0.6);
+  }
+  .fd-hgauge-zone-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    display: inline-block;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
      CashCycleChart — stacked bars + CCC line overlay
      ───────────────────────────────────────────────────────────── */
   .fd-w-cycle { width: 100%; display: flex; flex-direction: column; gap: 8px; }
-  .fd-w-cycle-svg { width: 100%; height: auto; display: block; }
+  .fd-w-cycle-svg { width: 100%; height: auto; max-height: 320px; display: block; }
   .fd-w-cycle-tick {
     font-family: 'Inter', sans-serif;
     font-size: 10px;

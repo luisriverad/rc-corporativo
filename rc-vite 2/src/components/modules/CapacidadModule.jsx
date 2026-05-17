@@ -4,7 +4,7 @@
 
 import { ModuleSection, Alert, CompletionBar } from '../shared/Common'
 import { fmtMoney, parseNum, calcCapacidad, capacidadCompletionPct } from '../../engines/financialEngine'
-import { ChartCard, GroupedBars, LineChart, Gauge } from '../shared/Charts'
+import { ChartCard, GroupedBars, HorizontalGauge } from '../shared/Charts'
 
 // ─────────────────────────────────────────────────────────────
 // KPI simple — para la fila de resumen
@@ -203,7 +203,7 @@ export default function CapacidadModule({ state, setState }) {
               eye="COBERTURA"
               title="DSCR · Servicio de Deuda"
               gauge={
-                <Gauge
+                <HorizontalGauge
                   value={calc.dscr}
                   min={0} max={5} unit="x" precision={2}
                   label="Flujo Mensual / PMT"
@@ -215,7 +215,7 @@ export default function CapacidadModule({ state, setState }) {
               eye="GARANTÍAS"
               title="LTV · Loan-to-Value"
               gauge={
-                <Gauge
+                <HorizontalGauge
                   value={ltv}
                   min={0} max={100} unit="%" precision={0}
                   label={`Monto / Valor garantías`}
@@ -227,7 +227,7 @@ export default function CapacidadModule({ state, setState }) {
               eye="COMPOSICIÓN"
               title="Capital vs Intereses"
               gauge={
-                <Gauge
+                <HorizontalGauge
                   value={totalPagar > 0 ? (intereses / totalPagar) * 100 : 0}
                   min={0} max={100} unit="%" precision={1}
                   label="Intereses / Total a pagar"
@@ -330,10 +330,12 @@ export default function CapacidadModule({ state, setState }) {
               title="Saldo insoluto durante el plazo"
             >
               {saldoSeries.length > 0 ? (
-                <LineChart
-                  points={saldoSeries}
+                <GroupedBars
+                  labels={mesLabels}
+                  series={[
+                    { name: 'Saldo insoluto', vals: saldoSeries, color: 'var(--rc-green)' }
+                  ]}
                   fmt={fmtMoneyShort}
-                  xLabels={mesLabels}
                 />
               ) : (
                 <div className="fd-w-empty">Captura los parámetros para visualizar la amortización</div>

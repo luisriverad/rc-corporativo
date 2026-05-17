@@ -146,7 +146,7 @@ function buildMonthLabels(monthsBack) {
 // dso, dio, dpo, ccc: arrays paralelos de números
 // ─────────────────────────────────────────────────────────────
 export function CashCycleChart({ labels, dso, dio, dpo, ccc }) {
-  const W = 520, H = 240, P = 32
+  const W = 1200, H = 240, P = 32
   const innerW = W - P * 2, innerH = H - P * 2 - 24 // 24px reservado para axis abajo
   const cy0 = P + innerH // base de las barras
 
@@ -156,7 +156,7 @@ export function CashCycleChart({ labels, dso, dio, dpo, ccc }) {
   const maxCcc = Math.max(0.0001, ...ccc.map(c => Math.abs(c || 0)))
   const yMax = Math.max(maxStack, maxCcc * 1.05)
 
-  const barW = Math.min(60, innerW / labels.length * 0.55)
+  const barW = Math.min(90, innerW / labels.length * 0.45)
   const slotW = innerW / labels.length
   const xCenter = (i) => P + slotW * (i + 0.5)
 
@@ -214,11 +214,26 @@ export function CashCycleChart({ labels, dso, dio, dpo, ccc }) {
         {/* CCC line overlay */}
         <path d={linePath} fill="none" stroke={COLOR_CCC} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         {cccPoints.map((p, i) => (
-          <g key={`pt-${i}`}>
-            <circle cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="4.5" fill="#fff" stroke={COLOR_CCC} strokeWidth="2" />
-            <text x={p.x.toFixed(1)} y={(p.y - 10).toFixed(1)} textAnchor="middle" className="fd-w-cycle-ccc-lbl">{(ccc[i] || 0).toFixed(0)}d</text>
-          </g>
+          <circle key={`pt-${i}`} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="4.5" fill="#fff" stroke={COLOR_CCC} strokeWidth="2" />
         ))}
+
+        {/* CCC value labels — siempre arriba de la barra apilada para legibilidad */}
+        {labels.map((_, i) => {
+          const yStackTop = yFromV(stackTotals[i])
+          const yCccPt = cccPoints[i].y
+          const yLbl = Math.min(yStackTop, yCccPt) - 10
+          return (
+            <text
+              key={`lbl-${i}`}
+              x={xCenter(i).toFixed(1)}
+              y={yLbl.toFixed(1)}
+              textAnchor="middle"
+              className="fd-w-cycle-ccc-lbl"
+            >
+              {(ccc[i] || 0).toFixed(0)}d
+            </text>
+          )
+        })}
 
         {/* X axis labels */}
         {labels.map((lab, i) => (
@@ -365,6 +380,104 @@ export function Gauge({ value, min = 0, max = 100, unit = '', precision = 2, lab
       {activeLabel && (
         <div className="fd-gauge-zone" style={{ color: activeColor, borderColor: activeColor }}>
           <span className="fd-gauge-zone-dot" style={{ background: activeColor }} />
+          {activeLabel}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// HorizontalGauge — barra horizontal con bandas de zona y marcador
+// Mismo contrato que Gauge: { value, min, max, unit, precision, label, zones, fmt }
+// ─────────────────────────────────────────────────────────────
+export function HorizontalGauge({ value, min = 0, max = 100, unit = '', precision = 2, label, zones, fmt }) {
+  const W = 240, H = 64
+  const padX = 10
+  const innerW = W - padX * 2
+  const barH = 14
+  const barTop = 22
+  const reactId = useId().replace(/[:]/g, '')
+  const clipId = `hgclip-${reactId}`
+
+  const v = value == null || !isFinite(value) ? min : value
+  const effectiveMax = v > max ? Math.ceil(v + Math.max(0.5, max * 0.1)) : max
+  const rawPos = (v - min) / (effectiveMax - min)
+  const pos = Math.max(0, Math.min(1, rawPos))
+  const underflow = rawPos < 0
+  const markerX = padX + innerW * pos
+
+  const lastZoneIdx = (zones?.length || 0) - 1
+  const zoneSegments = zones?.map((z, i) => {
+    const zStart = i === 0 ? min : zones[i - 1].until
+    const zEnd = i === lastZoneIdx && z.until >= max ? effectiveMax : Math.min(z.until, effectiveMax)
+    const x1 = padX + ((zStart - min) / (effectiveMax - min)) * innerW
+    const x2 = padX + ((zEnd - min) / (effectiveMax - min)) * innerW
+    return { x: x1, width: Math.max(0, x2 - x1), color: z.color, key: i }
+  }) || []
+
+  let activeColor = 'var(--rc-green)'
+  let activeLabel = null
+  if (zones && zones.length > 0) {
+    for (let i = 0; i < zones.length; i++) {
+      const z = zones[i]
+      if (v <= z.until) { activeColor = z.color; activeLabel = z.label || null; break }
+      activeColor = z.color
+      activeLabel = z.label || null
+    }
+  }
+
+  const fmtTick = (n) => Number.isInteger(n) ? String(n) : n.toFixed(1)
+  const displayVal = fmt ? fmt(v) : `${v.toFixed(precision)}${unit}`
+
+  return (
+    <div className="fd-hgauge">
+      <div className="fd-hgauge-v" style={{ color: activeColor }}>{displayVal}</div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="fd-hgauge-svg" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <clipPath id={clipId}>
+            <rect x={padX} y={barTop} width={innerW} height={barH} rx={barH / 2} ry={barH / 2} />
+          </clipPath>
+        </defs>
+
+        {/* Background track */}
+        <rect x={padX} y={barTop} width={innerW} height={barH} rx={barH / 2} ry={barH / 2} fill="#EFEDE5" />
+
+        {/* Zone bands */}
+        <g clipPath={`url(#${clipId})`}>
+          {zoneSegments.map(zs => (
+            <rect key={zs.key} x={zs.x.toFixed(1)} y={barTop} width={zs.width.toFixed(1)} height={barH} fill={zs.color} />
+          ))}
+        </g>
+
+        {/* Marker — triángulo + línea vertical */}
+        <g transform={`translate(${markerX.toFixed(1)}, 0)`}>
+          <polygon
+            points={`0,${barTop - 3} -5,${barTop - 11} 5,${barTop - 11}`}
+            fill="var(--rc-text)"
+            stroke="#fff"
+            strokeWidth="1"
+            strokeLinejoin="round"
+          />
+          <line
+            x1="0" y1={barTop - 1}
+            x2="0" y2={barTop + barH + 1}
+            stroke="var(--rc-text)" strokeWidth="2"
+          />
+        </g>
+
+        {/* Min / Max ticks */}
+        <text x={padX} y={H - 4} textAnchor="start" className="fd-hgauge-tick">{fmtTick(min)}</text>
+        <text x={W - padX} y={H - 4} textAnchor="end" className="fd-hgauge-tick">{fmtTick(effectiveMax)}</text>
+
+        {underflow && (
+          <text x={padX} y={barTop - 6} textAnchor="start" className="fd-hgauge-tick" style={{ fill: 'var(--rc-red)' }}>◂</text>
+        )}
+      </svg>
+      {label && <div className="fd-hgauge-l">{label}</div>}
+      {activeLabel && (
+        <div className="fd-hgauge-zone" style={{ color: activeColor, borderColor: activeColor }}>
+          <span className="fd-hgauge-zone-dot" style={{ background: activeColor }} />
           {activeLabel}
         </div>
       )}
