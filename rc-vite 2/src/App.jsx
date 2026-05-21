@@ -7,6 +7,7 @@ import { MIRAMAR_DATA, emptyState, MODS } from './data/miramarSample'
 import { Header, SubBar, Sidebar, Footer } from './components/shared/Shell'
 import { Icon, Toast } from './components/shared/Common'
 import { ExportModal } from './components/shared/ExportModal'
+import { DocumentosModal } from './components/shared/DocumentosModal'
 
 import DashboardModule from './components/modules/DashboardModule'
 import CaratulaModule from './components/modules/CaratulaModule'
@@ -51,6 +52,7 @@ export default function App() {
   const [state, setStateRaw] = useState(loadState)
   const [active, setActive] = useState('dashboard')
   const [showExport, setShowExport] = useState(false)
+  const [showDocumentos, setShowDocumentos] = useState(false)
   const [toast, setToast] = useState(null)
 
   // Persistencia
@@ -63,11 +65,6 @@ export default function App() {
   const setState = (newState) => setStateRaw(newState)
 
   const showToast = (msg, type='success') => setToast({ msg, type })
-
-  const loadMiramar = () => {
-    setStateRaw({ ...MIRAMAR_DATA, modulesCompleted: { caratula:true, financieros:true, analisis:true, buro:true, capacidad:true, riesgo:true, analisisRiesgos:true, dictamen:true } })
-    showToast('Datos MIRAMAR cargados')
-  }
 
   const clearAll = () => {
     if (confirm('¿Estás seguro? Se borrarán todos los datos capturados.')) {
@@ -111,8 +108,8 @@ export default function App() {
       <button className="btn btn-ghost" onClick={clearAll}>
         <Icon path='<polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/>' size={14} /> Limpiar
       </button>
-      <button className="btn" onClick={loadMiramar}>
-        <Icon path='<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>' size={14} /> Cargar MIRAMAR
+      <button className="btn" onClick={() => setShowDocumentos(true)}>
+        <Icon path='<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>' size={14} /> Carga Documentos
       </button>
       <button className="btn btn-primary" onClick={() => setShowExport(true)}>
         <Icon path='<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>' size={14} /> Exportar Caso
@@ -139,6 +136,20 @@ export default function App() {
           onClose={() => setShowExport(false)}
           onImport={(newState) => setStateRaw(newState)}
           showToast={showToast}
+        />
+      )}
+      {showDocumentos && (
+        <DocumentosModal
+          onClose={() => setShowDocumentos(false)}
+          showToast={showToast}
+          onEjecutar={() => {
+            setStateRaw({
+              ...MIRAMAR_DATA,
+              modulesCompleted: { caratula:true, financieros:true, analisis:true, buro:true, capacidad:true, riesgo:true, analisisRiesgos:true, dictamen:true }
+            })
+            setActive('dashboard')
+            showToast('Documentos procesados · datos cargados')
+          }}
         />
       )}
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
